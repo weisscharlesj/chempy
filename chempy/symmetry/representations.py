@@ -132,7 +132,7 @@ def print_table(group):
 
     table = [[group.capitalize(), *header]]
     if group == 'c1':
-        table.append([rows, 1])
+        table.append([rows[0], 1])
     else:
         for i_row in range(len(rows)):
             table.append([rows[i_row], *tables[group][i_row]])
@@ -141,7 +141,7 @@ def print_table(group):
 
 
 @np.vectorize
-def sympy_to_num(sp):
+def _sympy_to_num(sp):
     """
     Convert array with sympy objects to array of floats and ints.
 
@@ -160,16 +160,7 @@ def sympy_to_num(sp):
     numpy array of floats and ints.
 
     """
-    try:
-        # converts sympy real values to floats
-        return sp.evalf()
-    except AttributeError:
-        try:
-            # convert sympy complex values to python complex numbers
-            return complex(sp)
-        except TypeError:
-            # returns ints unchanged
-            return sp
+    return complex(sp)
 
 
 class Reducible:
@@ -200,32 +191,24 @@ class Reducible:
         -------
         None.
         """
-        if np.all(np.mod(gamma, 1) != 0):
-            print('Invalid representation - must be whole numbers.')
+        if np.any(np.mod(gamma, 1) != 0):
+            raise ValueError('Invalid representation - must be whole numbers.')
         elif group.lower() not in tables.keys():
-            print('Invalid point group.')
+            raise ValueError('Invalid point group.')
         elif np.array(gamma).size != tables[group.lower()].shape[0]:
-            print(f'Invalid representation size for {group} point group.')
-        else:
-            self.group = group.lower()
-            self.gamma = gamma
-            self.all_motion = all_motion
+            raise ValueError(f'Invalid representation size for {group}'
+                             'point group.')
 
-    def return_dict_method(func):
+        self.group = group.lower()
+        self.gamma = gamma
+        self.all_motion = all_motion
+
+    def _return_dict(func):
         """
         Return results as a dictionary.
 
         Return a list or array as a dictionary with Mulliken symbols as
         the keys.
-
-        Parameters
-        ----------
-        arr : List, tuple, or array
-            List or array containing results corresponding to irreducible
-            representations.
-        group : str
-            Point group Schoenflies notation (e.g., 'C2v').  This is
-            case-insensitive.
 
         Returns
         -------
@@ -237,12 +220,12 @@ class Reducible:
             if kwargs.get('to_dict'):
                 keys = mulliken[self.group.lower()]
                 values = func(self, *args, **kwargs)
-                return dict(zip(keys, values.tolist()))
+                return dict(zip(keys, values.tolist(), strict=True))
             else:
                 return func(self, *args, **kwargs)
         return wrapper
 
-    @return_dict_method
+    @_return_dict
     def decomp(self, to_dict=False):
         """
         Decompose reducible representation into number of irreducibles.
@@ -277,7 +260,7 @@ class Reducible:
         >>> rep.decomp(to_dict=True)
         {"A'": 3, "E'": 4, 'A"': 2, 'E"': 1}
         """
-        table = sympy_to_num(tables[self.group])
+        table = _sympy_to_num(tables[self.group])
         gamma = np.array(self.gamma)
 
         if self.group == 'c1':
@@ -289,7 +272,7 @@ class Reducible:
 
         return np.rint(n_i).astype(int)
 
-    @return_dict_method
+    @_return_dict
     def vibe_modes(self, to_dict=False):
         """Return vibrational modes.
 
@@ -322,7 +305,7 @@ class Reducible:
 
         return np.array(irreducibles) - np.array(rot_trans)
 
-    @return_dict_method
+    @_return_dict
     def ir_active(self, to_dict=False):
         """Return IR active vibrational modes.
 
@@ -355,7 +338,7 @@ class Reducible:
         """
         return self.vibe_modes() * np.array(IR_active[self.group])
 
-    @return_dict_method
+    @_return_dict
     def raman_active(self, to_dict=False):
         """Return Raman active vibrational modes.
 
@@ -377,7 +360,7 @@ class Reducible:
         Examples
         --------
         >>> rep = Reducible([9, -1, 3, 1], 'c2v', all_motion=True)
-        >>> rep.raman_active([3, 1, 3, 2, 'C2v'])
+        >>> rep.raman_active()
         array([2, 0, 1, 0])
         >>> rep = Reducible([5, 2, 1, 3, 0, 3], 'd3h', all_motion=False)
         >>> rep.raman_active()
@@ -423,7 +406,8 @@ class Reducible:
         """
         irred_sum = np.sum((tables[group.lower()].T * n_irred).T, axis=0)
 
-        return cls(np.rint(irred_sum).astype(int), group, all_motion=False)
+        return cls(np.rint(_sympy_to_num(irred_sum).real).astype(int), group,
+                   all_motion=all_motion)
 
     @classmethod
     def from_atoms(cls, n_atoms, group):
@@ -459,9 +443,11 @@ class Reducible:
         """
         n_atoms = np.array(n_atoms)
 
-        if np.all(np.mod(n_atoms, 1) == 0):
-            gamma = np.rint(n_atoms * np.array(atom_contribution[group]))
-            return cls(gamma.astype(int), group, all_motion=True)
-        else:
-            print("""Number of stationary atoms (n_atoms) must be an integer
-                  value.""")
+        if np.any(np.mod(n_atoms, 1) != 0):
+            raise ValueError('Number of stationary atoms (n_atoms) must be'
+                             'an integer value.')
+
+        gamma = np.rint(
+            n_atoms * _sympy_to_num(
+                np.array(atom_contribution[group.lower()])).real)
+        return cls(gamma.astype(int), group, all_motion=True)
