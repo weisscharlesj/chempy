@@ -78,6 +78,10 @@ class Test_ReducibleMethods():
         with pytest.raises(ValueError):
             Reducible(gamma, group)
 
+    def test_raise_valueerror_decom(self):
+        with pytest.raises(ValueError):
+            Reducible([9, -1, 0, 0], 'c2v').decomp()
+
     def test_decomp(self):
         water = Reducible([9, -1, 3, 1], 'c2v', all_motion=True)
         # trans-dichloroethene

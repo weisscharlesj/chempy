@@ -270,6 +270,10 @@ class Reducible:
             # mask removes complex conjugate to avoid "doubling problem"
             n_i = gamma.dot(np.linalg.inv(table)).real[mask]
 
+        if np.any(np.abs(n_i - np.rint(n_i)) > 0.02):
+            raise ValueError('Invalid reducible representation. Does not'
+                             ' decompose into irreducibles for this group.')
+
         return np.rint(n_i).astype(int)
 
     @_return_dict
