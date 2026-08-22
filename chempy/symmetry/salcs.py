@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from .tables import (
-    tables,
-    symmetry_func_dict,
-    column_coeffs,
-    mulliken
-)
-
 """
 Contains chemical group theory functions for calculating symmetry adapted
 linear combinations (SALCs) or group orbitals using either the projection
@@ -14,13 +7,14 @@ operator method or using the symmetry functions in the character tables.
 """
 
 from math import cos, sin, radians, isclose
-import numpy as np
 from functools import wraps
+import numpy as np
 import sympy
-sympy.init_printing(pretty_print=False)
+
+from .tables import tables, symmetry_func_dict, column_coeffs, mulliken
 
 
-def return_dict(func):
+def _return_dict(func):
     """
     Return results as a dictionary.
 
@@ -37,18 +31,22 @@ def return_dict(func):
     Dictionary.
 
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if kwargs.get('to_dict'):
-            keys = mulliken[args[1].lower()]
+        if kwargs.get("to_dict"):
+            group = kwargs.get("group", args[1] if len(args) > 1 else kwargs['group'])
+            keys = mulliken[group.lower()]
             values = func(*args, **kwargs)
-            return dict(zip(keys, values))
-        else:
-            return func(*args, **kwargs)
+            return dict(zip(keys, values, strict=True))
+
+        return func(*args, **kwargs)
+
     return wrapper
 
 
 # PROJECTION OPERATOR METHOD
+
 
 def _expand_irreducible(irred, group):
     """
@@ -83,7 +81,7 @@ def _expand_irreducible(irred, group):
     return expanded_irred
 
 
-def _normalize_salcs_expr(salcs):
+def _normalize_salcs_expr(salcs, symbols):
     """
     Normalize SALC composed of sympy expressions.
 
@@ -94,6 +92,8 @@ def _normalize_salcs_expr(salcs):
     ----------
     salcs : List or nested list of sympy expressions.
         Nested list of SALCs.
+    symbols : SymPy symbols
+        SymPy symbols representing outer ligands or atoms.
 
     Returns
     -------
@@ -103,16 +103,18 @@ def _normalize_salcs_expr(salcs):
     normalized_values = []
     for salc in salcs:
         if isinstance(salc, list):
-            normalized_values.append(_normalize_salcs_expr(salc))
+            normalized_values.append(_normalize_salcs_expr(salc, symbols))
         elif salc == 0:
             normalized_values.append(salc)
         else:
-            normalized_values.append(salc.as_poly().monic().as_expr())
+            coeffs = [salc.coeff(symbol) for symbol in symbols]
+            norm_coeff = max(coeffs, key=lambda x: (abs(x), x))
+            normalized_values.append(salc / norm_coeff)
 
     return normalized_values
 
 
-@return_dict
+@_return_dict
 def calc_salcs_projection(projection, group, to_dict=False):
     """
     Return SALCs using projection operator method.
@@ -153,14 +155,18 @@ def calc_salcs_projection(projection, group, to_dict=False):
     salcs = []
 
     for irred in tables[group.lower()]:
-        product = np.array(_expand_irreducible(irred, group.lower()) *
-                           np.array(projection))
+        product = np.array(
+            _expand_irreducible(irred, group.lower()) * np.array(projection)
+        )
         salcs.append(np.sum(product))
 
-    return _normalize_salcs_expr(salcs)
+    symbols = list(sympy.ordered(projection))
+
+    return _normalize_salcs_expr(salcs, symbols)
 
 
 # USING SYMMETRY FUNCTIONS
+
 
 def _angles_to_vectors(ligand_angles):
     """
@@ -231,7 +237,7 @@ def _eval_sym_func(coords, funcs):
     List or 0.
 
     """
-    salcs = []
+    salcs=[]
 
     for func in funcs:
         ligand_contribs = []
@@ -245,10 +251,9 @@ def _eval_sym_func(coords, funcs):
 
     if not salcs:
         return 0
-    elif len(salcs) == 1:
+    if len(salcs) == 1:
         return salcs[0]
-    else:
-        return salcs
+    return salcs
 
 
 def _normalize_salcs(salcs):
@@ -327,8 +332,8 @@ def _weights_to_symbols(weights, symbols):
     return symbolic_wt
 
 
-@return_dict
-def calc_salcs_func(ligands, group, symbols, mode='vector', to_dict=False):
+@_return_dict
+def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False):
     """
     Return SALCs using symmetry functions in character table.
 
@@ -352,14 +357,18 @@ def calc_salcs_func(ligands, group, symbols, mode='vector', to_dict=False):
         SymPy symbols representing outer ligands or atoms.
     mode : 'vector' or 'angle'
         Whether the position of ligands or outer atoms are provided in xyz
-        coordinates ('vector') or [theta, phi] angles ('angle').
+        coordinates ('vector') or [azimuthal, polar] angles ('angle'). The
+        azimuthal angle is the angle from the positive x-axis on the xy-plane
+        and the polar angle is the angle from the positive z-axis. Default is
+        'vector'.
 
     Returns
     -------
     List of sympy symbols indicating the weight and sign of each atomic
     orbital contribution to the SALC. There may be redundant SALCs returned
     due to multiple symmetry functions with an irreducible representation
-    returning the same SALC.
+    returning the same SALC. Not all SALCs are guaranteed to be returned in
+    this method.
 
     Examples
     --------
@@ -378,15 +387,15 @@ def calc_salcs_func(ligands, group, symbols, mode='vector', to_dict=False):
     [1] Kim, S. K. Group Theoretical Methods and Applications to Molecules
     and Crystals; Cambridge University Press: Cambridge, 1999, 155-157.
     """
-    if mode == 'angle':
-        ligand_vectors = _angles_to_vectors(ligands)
-    elif mode == 'vector':
+    if mode == "angle":
+        ligand_vectors=_angles_to_vectors(ligands)
+    elif mode == "vector":
         ligand_vectors = ligands
     else:
-        raise Exception("Invalid mode input: must be 'angle' or 'vector'")
+        raise ValueError("Invalid mode input: must be 'angle' or 'vector'")
 
     salcs = []
-    for sym_func in symmetry_func_dict[group]:
+    for sym_func in symmetry_func_dict[group.lower()]:
         if sym_func == 0:
             salcs.append(0)
         elif sym_func == 1:

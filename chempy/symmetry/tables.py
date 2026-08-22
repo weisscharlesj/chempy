@@ -22,7 +22,7 @@ s5, s35 = -1 + 2 * sympy.cos(2 * pi / 5), -1 + 2 * sympy.cos(2 * pi * 3 / 5)
 s12, s512 = -1 + 2 * sympy.cos(2 * pi / 12), -1 + 2 * sympy.cos(2 * pi * 5 / 12)
 
 # body of character tables
-tables = {'c1': np.array([1]),
+tables = {'c1': np.array([[1]]),
           'cs': np.array([[1, 1],
                           [1,-1]]),
           'ci': np.array([[1, 1],

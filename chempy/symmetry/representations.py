@@ -197,7 +197,7 @@ class Reducible:
             raise ValueError('Invalid point group.')
         elif np.array(gamma).size != tables[group.lower()].shape[0]:
             raise ValueError(f'Invalid representation size for {group}'
-                             'point group.')
+                             ' point group.')
 
         self.group = group.lower()
         self.gamma = gamma
@@ -445,7 +445,7 @@ class Reducible:
 
         if np.any(np.mod(n_atoms, 1) != 0):
             raise ValueError('Number of stationary atoms (n_atoms) must be'
-                             'an integer value.')
+                             ' an integer value.')
 
         gamma = np.rint(
             n_atoms * _sympy_to_num(

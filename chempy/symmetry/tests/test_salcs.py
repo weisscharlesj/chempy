@@ -15,6 +15,14 @@ def test_calc_salcs_projection():
     assert (calc_salcs_projection([a, b, c, a, b, c], 'c3v') ==
             [a + b + c, 0, a - b/2 - c/2])
 
+    # ammonia hydrogens with to_dict=True
+    assert (calc_salcs_projection([a, b, c, a, b, c], 'c3v', to_dict=True) ==
+            {'A1': a + b + c, 'A2': 0, 'E': a - b/2 - c/2})
+
+     # ammonia hydrogens with to_dict=True and group as kwarg
+    assert (calc_salcs_projection([a, b, c, a, b, c], group='c3v', to_dict=True) ==
+            {'A1': a + b + c, 'A2': 0, 'E': a - b/2 - c/2})
+
     # trigonal bipyramidal
     a1, a2, e1, e2, e3 = sympy.symbols('a1, a2, e1, e2, e3')
     assert (calc_salcs_projection([e1, e2, e3, -e1, -e2, -e3, -e1,
@@ -55,7 +63,7 @@ def test_calc_salcs_func():
     salc_true1 = [a + b + c + d, 0, a - b + c - d, 0, 0, 0, 0, 0, 0,
                   [a - c, b - d]]
     assert (calc_salcs_func([[1, 0, 0], [0, 1, 0], [-1, 0, 0], [0, -1, 0]],
-                            'd4h', [a, b, c, d], mode='vector') == salc_true1)
+                            'D4h', [a, b, c, d], mode='vector') == salc_true1)
 
     # trigonal bipyramidal - a is for axial and e is for equatorial
     a1, a2, e1, e2, e3 = sympy.symbols('a1, a2, e1, e2, e3')
@@ -64,7 +72,7 @@ def test_calc_salcs_func():
                    e2 - e3], 0, a1 - a2, 0]
     angles = [[0, 90], [120, 90], [240, 90], [0, 0], [0, 180]]
     assert (calc_salcs_func(angles, 'd3h', [e1, e2, e3, a1, a2], mode='angle')
-           == salc_true2)
+            == salc_true2)
 
     # seesaw - such as SF4, a is for axial and e is for equatorial
     a1, a2, e1, e2 = sympy.symbols('a1 a2 e1 e2')
