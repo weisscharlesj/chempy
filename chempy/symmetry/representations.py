@@ -408,6 +408,8 @@ class Reducible:
         >>> rep.gamma
         array([6, 3, 2])
         """
+        # double each irreducible for groups with complex conjugates
+        n_irred = np.asarray(n_irred)[np.cumsum(masks[group.lower()]) - 1]
         irred_sum = np.sum((tables[group.lower()].T * n_irred).T, axis=0)
 
         return cls(np.rint(_sympy_to_num(irred_sum).real).astype(int), group,

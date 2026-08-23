@@ -131,11 +131,13 @@ class Test_ReducibleMethods():
         assert np.all(tDCE.raman_active(to_dict=True) ==
                       {'Ag': 5, 'Bg': 1, 'Au': 0, 'Bu': 0})
 
-    def test_from_irred(self):
-        test_rep = Reducible.from_irred([1, 0, 1, 0], 'c2v')
-        true_rep = Reducible([2, 0, 2, 0], 'c2v', all_motion=False)
+    @pytest.mark.parametrize('irred, gamma, group', [
+        ([1, 0, 1, 0], [2, 0, 2, 0], 'c2v'),
+        ([1, 0, 1, 0, 1, 0, 1], [6, 0, 2, 0, -2, 2, 0], 'd4d'),
+        ([1, 1], [3, 0, 0], 'c3'),
+        ([0, 0, 1, 1, 2, 0], [5, -1, 1, -1, -1, 1, -5, 1], 'C4h')
+    ])
+    def test_from_irred(self, irred, gamma, group):
+        test_rep = Reducible.from_irred(irred, group)
+        true_rep = Reducible(gamma, group, all_motion=False)
         assert np.all(test_rep.gamma == true_rep.gamma)
-
-        test_rep2 = Reducible.from_irred([1, 0, 1, 0, 1, 0, 1], 'd4d')
-        true_rep2 = Reducible([6, 0, 2, 0, -2, 2, 0], 'd4d', all_motion=False)
-        assert np.all(test_rep2.gamma == true_rep2.gamma)
