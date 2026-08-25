@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sympy
+from sympy import exp, I, pi
 from ..salcs import (
     calc_salcs_projection,
     calc_salcs_func,
@@ -55,6 +56,19 @@ def test_calc_salcs_projection():
             [0, a - d, 0, a + d])
     assert (calc_salcs_projection(after_trans_inner, 'c2v') ==
             [0, b - c, 0, b + c])
+
+    # C3 with complex conjugates
+    a, b, c = sympy.symbols('a b c', real=True)
+    assert (calc_salcs_projection([a, b, c], 'c3') ==
+           [a + b + c,
+           [a + b*exp(2*I*pi/3) + c*exp(-2*I*pi/3),
+            a + b*exp(-2*I*pi/3) + c*exp(2*I*pi/3)]])
+
+    # S4 with complex conjugates
+    a, b, c, d = sympy.symbols('a b c d', real=True)
+    assert (calc_salcs_projection([a, d, b, c], 's4') ==
+           [a + b + c + d, a + b - c - d,
+            [a - b - I*c + I*d, a - b + I*c - I*d]])
 
 
 def test_calc_salcs_func():

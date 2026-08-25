@@ -11,7 +11,7 @@ from functools import wraps
 import numpy as np
 import sympy
 
-from .tables import tables, symmetry_func_dict, column_coeffs, mulliken
+from .tables import tables, symmetry_func_dict, column_coeffs, mulliken, masks
 
 
 def _return_dict(func):
@@ -35,7 +35,8 @@ def _return_dict(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if kwargs.get("to_dict"):
-            group = kwargs.get("group", args[1] if len(args) > 1 else kwargs['group'])
+            group = kwargs.get("group", args[1] if len(args) > 1
+                               else kwargs['group'])
             keys = mulliken[group.lower()]
             values = func(*args, **kwargs)
             return dict(zip(keys, values, strict=True))
@@ -108,11 +109,35 @@ def _normalize_salcs_expr(salcs, symbols):
             normalized_values.append(salc)
         else:
             coeffs = [salc.coeff(symbol) for symbol in symbols]
-            norm_coeff = max(coeffs, key=lambda x: (abs(x), x))
+            norm_coeff = max(coeffs, key=lambda x: (sympy.Abs(x), sympy.re(x), sympy.im(x)))
             normalized_values.append(salc / norm_coeff)
 
     return normalized_values
 
+def _combine_conjugates(salcs, mask):
+    """Group together SALCs from doubly-degenerate complex conjugates.
+
+    Parameters
+    ----------
+    salcs : List
+        Non-nexted list of SALCs.
+    mask : tuple
+        Tuple of 1 and 0 values.
+
+    Returns
+    -------
+    List or nested list
+    """
+    r = []
+    for i in range(len(salcs)):
+        try:
+            if mask[i] and mask[i + 1]:
+                r.append(salcs[i])
+            elif mask[i] and not mask[i + 1]:
+                r.append([salcs[i], salcs[i + 1]])
+        except IndexError:
+            r.append(salcs[i])
+    return r
 
 @_return_dict
 def calc_salcs_projection(projection, group, to_dict=False):
@@ -120,12 +145,12 @@ def calc_salcs_projection(projection, group, to_dict=False):
     Return SALCs using projection operator method.
 
     Given the projections of orbitals as a result of a point group symmetry
-    operations, returns the SALCs. This is a two-step process.
+    operations, returns the SALCs. This is a three-step process.
     1. Provide all ligands or outer atoms with SymPy variable names.
     2. Track an orbital to see how it transforms after each symmetry operation
     3. Provide a list of the results from step 2.
 
-    Note: The projection operator method only turns one SALC for E and T
+    Note: The projection operator method only returns one SALC for E and T
     point groups.
 
     Parameters
@@ -159,7 +184,7 @@ def calc_salcs_projection(projection, group, to_dict=False):
             _expand_irreducible(irred, group.lower()) * np.array(projection)
         )
         salcs.append(np.sum(product))
-
+    salcs = _combine_conjugates(salcs, masks[group.lower()]) # next complex conj.
     symbols = list(sympy.ordered(projection))
 
     return _normalize_salcs_expr(salcs, symbols)
@@ -319,16 +344,14 @@ def _weights_to_symbols(weights, symbols):
     for weight in weights:
         if weight == 0:
             symbolic_wt.append(0)
+        elif isinstance(weight, (list, tuple)) and isinstance(weight[0], (list, tuple)):
+            symbolic_wt.append(_weights_to_symbols(weight, symbols))
         else:
-            try:
-                sym = np.array(weight).dot(np.array(symbols))
-                if isinstance(sym, np.ndarray):
-                    symbolic_wt.append(sym.tolist())
-                else:
-                    symbolic_wt.append(sym)
-            except ValueError:
-                symbolic_wt.append(_weights_to_symbols(weight, symbols))
-
+            sym = np.array(weight).dot(np.array(symbols))
+            if isinstance(sym, np.ndarray):
+                symbolic_wt.append(sym.tolist())
+            else:
+                symbolic_wt.append(sym)
     return symbolic_wt
 
 
