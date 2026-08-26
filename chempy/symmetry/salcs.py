@@ -98,7 +98,7 @@ def _normalize_salcs_expr(salcs, symbols):
 
     Returns
     -------
-    np.array
+    list of normalized SALCs
 
     """
     normalized_values = []
@@ -160,10 +160,13 @@ def calc_salcs_projection(projection, group, to_dict=False):
     group : str
         Point group Schoenflies notation (e.g., 'C2v').  This is
         case-insensitive.
+    to_dict : bool
+        True causes the function to return a dictionary with Mulliken
+        symbols as the keys.
 
     Returns
     -------
-    List or nested list of strings of the SALCs for each irreducible
+    List or nested list of sympy expressions of the SALCs for each irreducible
     representation. Returns 0 for irreducibles with no SALC. If to_dict=True,
     returns a dictionary.
 
@@ -241,7 +244,7 @@ def _angles_to_vectors(ligand_angles):
     return all_vectors
 
 
-def _eval_sym_func(coords, funcs):
+def _eval_sym_func(coords, exprs):
     """
     Evaluate symmetry functions for an irreducible representation.
 
@@ -253,7 +256,7 @@ def _eval_sym_func(coords, funcs):
     ----------
     coords : List, tuple, or array containing values in threes
         xyz coordinates of ligand unit vectors.
-    funcs : str
+    exprs : tuple of stings
         The symmetry function supplied as a string or tuple of strings
         (e.g., 'x**2-y**2' or ('z**2', 'x**2+y**2')).
 
@@ -264,11 +267,11 @@ def _eval_sym_func(coords, funcs):
     """
     salcs=[]
 
-    for func in funcs:
+    for expr in exprs:
         ligand_contribs = []
         for unit_vector in coords:
             x, y, z = unit_vector[0], unit_vector[1], unit_vector[2]
-            ligand_contrib = eval(func, {'x': x, 'y': y, 'z': z})
+            ligand_contrib = eval(expr, {'x': x, 'y': y, 'z': z})
             ligand_contribs.append(round(ligand_contrib, 2))
 
         if np.any(ligand_contribs):
@@ -295,7 +298,7 @@ def _normalize_salcs(salcs):
 
     Returns
     -------
-    np.array
+    list of normalized SALCs
 
     """
     normalized_values = []
@@ -370,7 +373,7 @@ def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False):
 
     Parameters
     ----------
-    ligand : list or nested list
+    ligands : list or nested list
         Nested list of ligand positions as xyz coordinates (mode='vector')
         or angles (mode='angle').
     group : str
@@ -384,6 +387,9 @@ def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False):
         azimuthal angle is the angle from the positive x-axis on the xy-plane
         and the polar angle is the angle from the positive z-axis. Default is
         'vector'.
+    to_dict : bool
+        True causes the function to return a dictionary with Mulliken
+        symbols as the keys.
 
     Returns
     -------

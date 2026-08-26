@@ -67,13 +67,8 @@ def print_point_groups():
     Prints Schoenflies notations for character tables available.
 
     """
-    pg = ('C1', 'Cs', 'Ci', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'D2',
-          'D3', 'D4', 'D5', 'D6', 'C2v', 'C3v', 'C4v', 'C5v', 'C6v', 'C2h',
-          'C3h', 'C4h', 'C5h', 'C6h', 'D2h', 'D3h', 'D4h', 'D5h', 'D6h', 'D8h',
-          'D2d', 'D3d', 'D4d', 'D5d', 'D6d', 'S4', 'S6', 'S8', 'T', 'Th', 'Td',
-          'O', 'Oh', 'I', 'Ih')
 
-    print(*pg)
+    print(*[x.capitalize() for x in tables.keys()])
 
 
 def print_mulliken(group):
@@ -200,7 +195,7 @@ class Reducible:
                              ' point group.')
 
         self.group = group.lower()
-        self.gamma = gamma
+        self.gamma = np.atleast_1d(gamma)
         self.all_motion = all_motion
 
     def _return_dict(func):
