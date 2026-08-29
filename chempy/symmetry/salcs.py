@@ -82,7 +82,56 @@ def _expand_irreducible(irred, group):
     return expanded_irred
 
 
-def _normalize_salcs_expr(salcs, symbols):
+def _set_largest_coeff_pos(salcs):
+    """Flip signs of coefficients in SALC if largest coefficient is negative.
+
+    Flips all coefficient signs if the largest magnitude coefficient is
+    negative. If the coefficients are imaginary, the salc is returned
+    unchanged.
+
+    Parameters
+    ----------
+    salcs : list or next list or tuple of SymPy expressions
+        SALC as a SymPy expression
+
+    Returns
+    -------
+    list or nested list of salcs
+
+    Example
+    -------
+    >>> from sympy import I, pi, exp
+    >>> a, b, c, d = sympy.symbols('a b c d')
+    >>> _set_largest_coeff_pos([-2*a + b + c])
+    [2*a - b - c]
+    >>> _set_largest_coeff_pos([2*a- b - c])
+    [2*a - b - c]
+    >>> _set_largest_coeff_pos([-a + b])
+    [a - b]
+    >>> _set_largest_coeff_pos([a + b*exp(2*I*pi/3) + c*exp(-2*I*pi/3)])
+    [a + b*exp(2*I*pi/3) + c*exp(-2*I*pi/3)]
+    >>> _set_largest_coeff_pos([-a + -b + -c, 0, [-a + c, -b + d]])
+    [a + b + c, 0, [a - c, b - d]]
+    """
+    results = []
+    for salc in salcs:
+        if isinstance(salc, list):
+            results.append(_set_largest_coeff_pos(salc))
+        elif salc == 0:
+            results.append(salc)
+        else:
+            symbols = sorted(list(salc.free_symbols), key=str)
+            coeffs = [salc.coeff(s) for s in symbols]
+            if not all(coeff.is_real for coeff in coeffs):
+                results.append(salc)
+            elif max(coeffs, key=abs) < 0:
+                results.append(-salc)
+            else:
+                results.append(salc)
+    return results
+
+
+def _normalize_salcs_expr(salcs, symbols, normalize_by='largest'):
     """
     Normalize SALC composed of sympy expressions.
 
@@ -95,6 +144,9 @@ def _normalize_salcs_expr(salcs, symbols):
         Nested list of SALCs.
     symbols : SymPy symbols
         SymPy symbols representing outer ligands or atoms.
+    normalize_by : 'largest' or 'smallest'
+        Coefficient useed to divide all other coefficients during
+        normalization. The default is 'largest'.
 
     Returns
     -------
@@ -109,7 +161,13 @@ def _normalize_salcs_expr(salcs, symbols):
             normalized_values.append(salc)
         else:
             coeffs = [salc.coeff(symbol) for symbol in symbols]
-            norm_coeff = max(coeffs, key=lambda x: (sympy.Abs(x), sympy.re(x), sympy.im(x)))
+            if normalize_by == 'largest':
+                norm_coeff = max(coeffs, key=lambda x: (sympy.Abs(x),
+                                                  sympy.re(x), sympy.im(x)))
+            elif normalize_by == 'smallest':
+                nz_coeffs = (c for c in coeffs if c != 0)
+                norm_coeff = min(nz_coeffs, key=lambda x: (sympy.Abs(x),
+                                                    sympy.re(x), sympy.im(x)))
             normalized_values.append(salc / norm_coeff)
 
     return normalized_values
@@ -140,7 +198,8 @@ def _combine_conjugates(salcs, mask):
     return r
 
 @_return_dict
-def calc_salcs_projection(projection, group, to_dict=False):
+def calc_salcs_projection(projection, group, to_dict=False,
+                          normalize_by='largest'):
     """
     Return SALCs using projection operator method.
 
@@ -163,6 +222,9 @@ def calc_salcs_projection(projection, group, to_dict=False):
     to_dict : bool
         True causes the function to return a dictionary with Mulliken
         symbols as the keys.
+    normalize_by : 'largest' or 'smallest'
+        Coefficient useed to divide all other coefficients during
+        normalization. The default is 'largest'.
 
     Returns
     -------
@@ -190,7 +252,8 @@ def calc_salcs_projection(projection, group, to_dict=False):
     salcs = _combine_conjugates(salcs, masks[group.lower()]) # next complex conj.
     symbols = list(sympy.ordered(projection))
 
-    return _normalize_salcs_expr(salcs, symbols)
+    return _set_largest_coeff_pos(
+        _normalize_salcs_expr(salcs, symbols, normalize_by=normalize_by))
 
 
 # USING SYMMETRY FUNCTIONS
@@ -284,7 +347,7 @@ def _eval_sym_func(coords, exprs):
     return salcs
 
 
-def _normalize_salcs(salcs):
+def _normalize_salcs(salcs, normalize_by='largest'):
     """
     Normalize SALC.
 
@@ -295,6 +358,9 @@ def _normalize_salcs(salcs):
     ----------
     salcs : List or nested list
         Nested list of SALCs.
+    normalize_by : 'largest' or 'smallest'
+        Coefficient useed to divide all other coefficients during
+        normalization. The default is 'largest'.
 
     Returns
     -------
@@ -304,11 +370,14 @@ def _normalize_salcs(salcs):
     normalized_values = []
     for value in salcs:
         if isinstance(value, list):
-            normalized_values.append(_normalize_salcs(value))
+            normalized_values.append(_normalize_salcs(value, normalize_by))
         elif value == 0:
             normalized_values.append(value)
         else:
-            coeff = round(value / max(salcs, key=abs), 2)
+            if normalize_by == 'largest':
+                coeff = round(value / max(salcs, key=abs), 2)
+            elif normalize_by == 'smallest':
+                coeff = round(value / min((s for s in salcs if s != 0), key=abs), 2)
             if coeff % 1 < 0.01:
                 coeff = sympy.Integer(coeff)
             normalized_values.append(coeff)
@@ -359,7 +428,8 @@ def _weights_to_symbols(weights, symbols):
 
 
 @_return_dict
-def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False):
+def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False,
+                    normalize_by='largest'):
     """
     Return SALCs using symmetry functions in character table.
 
@@ -390,6 +460,9 @@ def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False):
     to_dict : bool
         True causes the function to return a dictionary with Mulliken
         symbols as the keys.
+    normalize_by : 'largest' or 'smallest'
+        Coefficient useed to divide all other coefficients during
+        normalization. The default is 'largest'.
 
     Returns
     -------
@@ -432,4 +505,6 @@ def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False):
         else:
             salcs.append(_eval_sym_func(ligand_vectors, sym_func))
 
-    return _weights_to_symbols(_normalize_salcs(salcs), symbols)
+    normalized = _normalize_salcs(salcs, normalize_by=normalize_by)
+
+    return _set_largest_coeff_pos(_weights_to_symbols(normalized, symbols))

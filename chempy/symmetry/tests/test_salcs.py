@@ -20,6 +20,11 @@ def test_calc_salcs_projection():
     assert (calc_salcs_projection([a, b, c, a, b, c], 'c3v', to_dict=True) ==
             {'A1': a + b + c, 'A2': 0, 'E': a - b/2 - c/2})
 
+    # ammonia hydrogens with to_dict=True and normalize_by='smallest'
+    assert (calc_salcs_projection([a, b, c, a, b, c], 'c3v',
+                                  to_dict=True, normalize_by='smallest') ==
+            {'A1': a + b + c, 'A2': 0, 'E': 2*a - b - c})
+
      # ammonia hydrogens with to_dict=True and group as kwarg
     assert (calc_salcs_projection([a, b, c, a, b, c], group='c3v', to_dict=True) ==
             {'A1': a + b + c, 'A2': 0, 'E': a - b/2 - c/2})
@@ -37,6 +42,12 @@ def test_calc_salcs_projection():
     a, b, c, d = sympy.symbols('a b c d')
     after_trans = [a, b, d, c, c, a, d, b, c, b, d, a, c, a, d, b]
     assert (calc_salcs_projection(after_trans, 'd4h') ==
+            [a + b + c + d, 0, a - b + c - d, 0, 0, 0, 0, 0, 0, a - c])
+
+    # square planar s-orbitals to test for divide-by-zero issues
+    a, b, c, d = sympy.symbols('a b c d')
+    after_trans = [a, b, d, c, c, a, d, b, c, b, d, a, c, a, d, b]
+    assert (calc_salcs_projection(after_trans, 'd4h', normalize_by='smallest') ==
             [a + b + c + d, 0, a - b + c - d, 0, 0, 0, 0, 0, 0, a - c])
 
     # benzene p-orbitals
@@ -109,6 +120,14 @@ def test_calc_salcs_func():
                                 [a, b, c, d, e, f])
     assert oh_angle == salc_true4
     assert oh_vector == salc_true4
+
+    # trigonal planar
+    a, b, c = sympy.symbols('a b c')
+    coords = [[0, -90], [120, -90], [240, -90]]
+    salcs_true5 = [a + b + c, 0, [2*a - b - c, b - c,
+                                   2*a - b - c, b - c], 0, 0, 0]
+    assert (calc_salcs_func(coords, 'd3h', [a, b, c], mode='angle',
+                    normalize_by='smallest') == salcs_true5)
 
 
 def test_expand_irreducible():
