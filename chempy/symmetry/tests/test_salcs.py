@@ -26,7 +26,7 @@ def test_calc_salcs_projection():
                                   to_dict=True, normalize_by='smallest') ==
             {'A1': a + b + c, 'A2': 0, 'E': 2*a - b - c})
 
-     # ammonia hydrogens with to_dict=True and group as kwarg
+    # ammonia hydrogens with to_dict=True and group as kwarg
     assert (calc_salcs_projection([a, b, c, a, b, c], group='c3v', to_dict=True) ==
             {'A1': a + b + c, 'A2': 0, 'E': a - b/2 - c/2})
 
@@ -72,14 +72,14 @@ def test_calc_salcs_projection():
     # C3 with complex conjugates
     a, b, c = sympy.symbols('a b c', real=True)
     assert (calc_salcs_projection([a, b, c], 'c3') ==
-           [a + b + c,
-           [a + b*exp(2*I*pi/3) + c*exp(-2*I*pi/3),
-            a + b*exp(-2*I*pi/3) + c*exp(2*I*pi/3)]])
+            [a + b + c,
+            [a + b*exp(2*I*pi/3) + c*exp(-2*I*pi/3),
+             a + b*exp(-2*I*pi/3) + c*exp(2*I*pi/3)]])
 
     # S4 with complex conjugates
     a, b, c, d = sympy.symbols('a b c d', real=True)
     assert (calc_salcs_projection([a, d, b, c], 's4') ==
-           [a + b + c + d, a + b - c - d,
+            [a + b + c + d, a + b - c - d,
             [a - b - I*c + I*d, a - b + I*c - I*d]])
 
 
@@ -126,9 +126,9 @@ def test_calc_salcs_func():
     a, b, c = sympy.symbols('a b c')
     coords = [[0, -90], [120, -90], [240, -90]]
     salcs_true5 = [a + b + c, 0, [2*a - b - c, b - c,
-                                   2*a - b - c, b - c], 0, 0, 0]
+                                  2*a - b - c, b - c], 0, 0, 0]
     assert (calc_salcs_func(coords, 'd3h', [a, b, c], mode='angle',
-                    normalize_by='smallest') == salcs_true5)
+                            normalize_by='smallest') == salcs_true5)
 
 
 def test_expand_irreducible():
@@ -140,7 +140,10 @@ def test_angles_to_vectors():
             [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0],
              [0.0, -1.0, 0.0]])
 
+
 a, b, c = sympy.symbols('a b c')
+
+
 @pytest.mark.parametrize('projection, group, norm', [
     ([a, b, c, a, b, c], 'c3g', 'largest'),
     ([a, b, c, a, b, 0], 'c3v', 'largest'),
@@ -151,6 +154,7 @@ def test_raise_valueerror_proj(projection, group, norm):
     with pytest.raises(ValueError):
         calc_salcs_projection(projection, group, normalize_by=norm)
 
+
 @pytest.mark.parametrize('ligands, group, symbols', [
     ([[0, -90], [120, -90], [240, -90]], 'c3g', [a, b, c]),
     ([[0, -90], [120, -90], [240, -90]], 'c1', [a, b, c]),
@@ -159,6 +163,7 @@ def test_raise_valueerror_proj(projection, group, norm):
 def test_raise_valueerror_func(ligands, group, symbols):
     with pytest.raises(ValueError):
         calc_salcs_func(ligands, group, symbols, mode='angle')
+
 
 def test_raise_valueerror_mode():
     with pytest.raises(ValueError):

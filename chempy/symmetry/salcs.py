@@ -163,15 +163,16 @@ def _normalize_salcs_expr(salcs, symbols, normalize_by='largest'):
         else:
             coeffs = [salc.coeff(symbol) for symbol in symbols]
             if normalize_by == 'largest':
-                norm_coeff = max(coeffs, key=lambda x: (sympy.Abs(x),
-                                                  sympy.re(x), sympy.im(x)))
+                norm_coeff = max(coeffs, key=lambda x: (
+                    sympy.Abs(x), sympy.re(x), sympy.im(x)))
             elif normalize_by == 'smallest':
                 nz_coeffs = (c for c in coeffs if c != 0)
                 norm_coeff = min(nz_coeffs, key=lambda x: (sympy.Abs(x),
-                                                    sympy.re(x), sympy.im(x)))
+                                                           sympy.re(x), sympy.im(x)))
             normalized_values.append(salc / norm_coeff)
 
     return normalized_values
+
 
 def _combine_conjugates(salcs, mask):
     """Group together SALCs from doubly-degenerate complex conjugates.
@@ -197,6 +198,7 @@ def _combine_conjugates(salcs, mask):
         except IndexError:
             r.append(salcs[i])
     return r
+
 
 @_return_dict
 def calc_salcs_projection(projection, group, *, to_dict=False,
@@ -263,7 +265,8 @@ def calc_salcs_projection(projection, group, *, to_dict=False,
             _expand_irreducible(irred, group.lower()) * np.array(projection)
         )
         salcs.append(np.sum(product))
-    salcs = _combine_conjugates(salcs, masks[group.lower()]) # next complx conj
+    salcs = _combine_conjugates(
+        salcs, masks[group.lower()])  # next complx conj
     unique_sym = set().union(*(p.free_symbols for p in projection))
     symbols = sorted(unique_sym, key=str)
 
@@ -343,7 +346,7 @@ def _eval_sym_func(coords, exprs):
     List or 0.
 
     """
-    salcs=[]
+    salcs = []
 
     for expr in exprs:
         ligand_contribs = []
@@ -391,7 +394,8 @@ def _normalize_salcs(salcs, normalize_by='largest'):
             if normalize_by == 'largest':
                 coeff = round(value / max(salcs, key=abs), 2)
             elif normalize_by == 'smallest':
-                coeff = round(value / min((s for s in salcs if s != 0), key=abs), 2)
+                coeff = round(
+                    value / min((s for s in salcs if s != 0), key=abs), 2)
             if coeff % 1 < 0.01:
                 coeff = sympy.Integer(coeff)
             normalized_values.append(coeff)
@@ -442,7 +446,7 @@ def _weights_to_symbols(weights, symbols):
 
 
 @_return_dict
-def calc_salcs_func(ligands, group, symbols,* ,mode="vector", to_dict=False,
+def calc_salcs_func(ligands, group, symbols, *, mode="vector", to_dict=False,
                     normalize_by='largest'):
     """
     Return SALCs using symmetry functions in character table.
@@ -519,7 +523,7 @@ def calc_salcs_func(ligands, group, symbols,* ,mode="vector", to_dict=False,
         raise ValueError('The number of symbols must equal the ligands.')
 
     if mode == "angle":
-        ligand_vectors=_angles_to_vectors(ligands)
+        ligand_vectors = _angles_to_vectors(ligands)
     elif mode == "vector":
         ligand_vectors = ligands
     else:
