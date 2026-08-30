@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import pytest
 import sympy
 from sympy import exp, I, pi
 from ..salcs import (
@@ -138,3 +139,28 @@ def test_angles_to_vectors():
     assert (_angles_to_vectors([[0, 90], [90, 90], [180, 90], [-90, 90]]) ==
             [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0],
              [0.0, -1.0, 0.0]])
+
+a, b, c = sympy.symbols('a b c')
+@pytest.mark.parametrize('projection, group, norm', [
+    ([a, b, c, a, b, c], 'c3g', 'largest'),
+    ([a, b, c, a, b, 0], 'c3v', 'largest'),
+    ([a, b, c, a, b], 'c3v', 'largest'),
+    ([a, b, c, a, b, c], 'c3v', 'biggest')
+])
+def test_raise_valueerror_proj(projection, group, norm):
+    with pytest.raises(ValueError):
+        calc_salcs_projection(projection, group, normalize_by=norm)
+
+@pytest.mark.parametrize('ligands, group, symbols', [
+    ([[0, -90], [120, -90], [240, -90]], 'c3g', [a, b, c]),
+    ([[0, -90], [120, -90], [240, -90]], 'c1', [a, b, c]),
+    ([[0, -90], [120, -90]], 'd3h', [a, b, c])
+])
+def test_raise_valueerror_func(ligands, group, symbols):
+    with pytest.raises(ValueError):
+        calc_salcs_func(ligands, group, symbols, mode='angle')
+
+def test_raise_valueerror_mode():
+    with pytest.raises(ValueError):
+        coords = [[0, -90], [120, -90], [240, -90]]
+        calc_salcs_func(coords, 'd3h', [a, b, c], mode='something')

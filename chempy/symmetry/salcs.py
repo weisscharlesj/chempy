@@ -91,7 +91,7 @@ def _set_largest_coeff_pos(salcs):
 
     Parameters
     ----------
-    salcs : list or next list or tuple of SymPy expressions
+    salcs : list or nested list or tuple of SymPy expressions
         SALC as a SymPy expression
 
     Returns
@@ -145,7 +145,7 @@ def _normalize_salcs_expr(salcs, symbols, normalize_by='largest'):
     symbols : SymPy symbols
         SymPy symbols representing outer ligands or atoms.
     normalize_by : 'largest' or 'smallest'
-        Coefficient useed to divide all other coefficients during
+        Coefficient used to divide all other coefficients during
         normalization. The default is 'largest'.
 
     Returns
@@ -156,7 +156,8 @@ def _normalize_salcs_expr(salcs, symbols, normalize_by='largest'):
     normalized_values = []
     for salc in salcs:
         if isinstance(salc, list):
-            normalized_values.append(_normalize_salcs_expr(salc, symbols))
+            normalized_values.append(_normalize_salcs_expr(
+                salc, symbols, normalize_by=normalize_by))
         elif salc == 0:
             normalized_values.append(salc)
         else:
@@ -178,7 +179,7 @@ def _combine_conjugates(salcs, mask):
     Parameters
     ----------
     salcs : List
-        Non-nexted list of SALCs.
+        Non-nested list of SALCs.
     mask : tuple
         Tuple of 1 and 0 values.
 
@@ -198,7 +199,7 @@ def _combine_conjugates(salcs, mask):
     return r
 
 @_return_dict
-def calc_salcs_projection(projection, group, to_dict=False,
+def calc_salcs_projection(projection, group, *, to_dict=False,
                           normalize_by='largest'):
     """
     Return SALCs using projection operator method.
@@ -223,7 +224,7 @@ def calc_salcs_projection(projection, group, to_dict=False,
         True causes the function to return a dictionary with Mulliken
         symbols as the keys.
     normalize_by : 'largest' or 'smallest'
-        Coefficient useed to divide all other coefficients during
+        Coefficient used to divide all other coefficients during
         normalization. The default is 'largest'.
 
     Returns
@@ -242,6 +243,19 @@ def calc_salcs_projection(projection, group, to_dict=False,
     {'A1': a + b + c, 'A2': 0, 'E': a - b/2 - c/2}
 
     """
+    if not isinstance(group, str):
+        raise ValueError('group needs to be a string.')
+    if group.lower() not in tables.keys():
+        raise ValueError('Invalid point group.')
+    if normalize_by not in ('smallest', 'largest'):
+        raise ValueError('normalize_by must be "largest" or "smallest".')
+    if not all([isinstance(proj, sympy.Expr) and not
+                isinstance(proj, sympy.Number) for proj in projection]):
+        raise ValueError('Projection must be all SymPy symbols.')
+    n_ops = sum(column_coeffs[group.lower()])
+    if n_ops != len(projection):
+        raise ValueError(f'The projection length must be {n_ops} for {group}.')
+
     salcs = []
 
     for irred in tables[group.lower()]:
@@ -249,8 +263,9 @@ def calc_salcs_projection(projection, group, to_dict=False,
             _expand_irreducible(irred, group.lower()) * np.array(projection)
         )
         salcs.append(np.sum(product))
-    salcs = _combine_conjugates(salcs, masks[group.lower()]) # next complex conj.
-    symbols = list(sympy.ordered(projection))
+    salcs = _combine_conjugates(salcs, masks[group.lower()]) # next complx conj
+    unique_sym = set().union(*(p.free_symbols for p in projection))
+    symbols = sorted(unique_sym, key=str)
 
     return _set_largest_coeff_pos(
         _normalize_salcs_expr(salcs, symbols, normalize_by=normalize_by))
@@ -319,7 +334,7 @@ def _eval_sym_func(coords, exprs):
     ----------
     coords : List, tuple, or array containing values in threes
         xyz coordinates of ligand unit vectors.
-    exprs : tuple of stings
+    exprs : tuple of strings
         The symmetry function supplied as a string or tuple of strings
         (e.g., 'x**2-y**2' or ('z**2', 'x**2+y**2')).
 
@@ -335,8 +350,7 @@ def _eval_sym_func(coords, exprs):
         for unit_vector in coords:
             x, y, z = unit_vector[0], unit_vector[1], unit_vector[2]
             ligand_contrib = eval(expr, {'x': x, 'y': y, 'z': z})
-            ligand_contribs.append(round(ligand_contrib, 2))
-
+            ligand_contribs.append(round(ligand_contrib, 3))
         if np.any(ligand_contribs):
             salcs.append(ligand_contribs)
 
@@ -359,7 +373,7 @@ def _normalize_salcs(salcs, normalize_by='largest'):
     salcs : List or nested list
         Nested list of SALCs.
     normalize_by : 'largest' or 'smallest'
-        Coefficient useed to divide all other coefficients during
+        Coefficient used to divide all other coefficients during
         normalization. The default is 'largest'.
 
     Returns
@@ -428,7 +442,7 @@ def _weights_to_symbols(weights, symbols):
 
 
 @_return_dict
-def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False,
+def calc_salcs_func(ligands, group, symbols,* ,mode="vector", to_dict=False,
                     normalize_by='largest'):
     """
     Return SALCs using symmetry functions in character table.
@@ -461,7 +475,7 @@ def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False,
         True causes the function to return a dictionary with Mulliken
         symbols as the keys.
     normalize_by : 'largest' or 'smallest'
-        Coefficient useed to divide all other coefficients during
+        Coefficient used to divide all other coefficients during
         normalization. The default is 'largest'.
 
     Returns
@@ -484,11 +498,26 @@ def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False,
     [a + b + c, 0, [a - 0.5*b - 0.5*c, b - c, a - 0.5*b - 0.5*c, b - c], \
 0, 0, 0]
 
+    Notes
+    -----
+    C1 has only E as a symmetry operation, so each orbital is its own SALC.
+
     References
     ----------
     [1] Kim, S. K. Group Theoretical Methods and Applications to Molecules
     and Crystals; Cambridge University Press: Cambridge, 1999, 155-157.
     """
+    if not isinstance(group, str):
+        raise ValueError('group needs to be a string.')
+    if group.lower() not in tables.keys():
+        raise ValueError('Invalid point group.')
+    if group.lower() == 'c1':
+        raise ValueError('Each orbital is its own SALC for C1.')
+    if normalize_by not in ('smallest', 'largest'):
+        raise ValueError('normalize_by must be "largest" or "smallest".')
+    if len(ligands) != len(symbols):
+        raise ValueError('The number of symbols must equal the ligands.')
+
     if mode == "angle":
         ligand_vectors=_angles_to_vectors(ligands)
     elif mode == "vector":
@@ -500,8 +529,6 @@ def calc_salcs_func(ligands, group, symbols,* , mode="vector", to_dict=False,
     for sym_func in symmetry_func_dict[group.lower()]:
         if sym_func == 0:
             salcs.append(0)
-        elif sym_func == 1:
-            salcs.append(1)
         else:
             salcs.append(_eval_sym_func(ligand_vectors, sym_func))
 
